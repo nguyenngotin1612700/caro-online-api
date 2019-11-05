@@ -1,0 +1,164 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var app = require('../app');
+var debug = require('debug')('api-caro-online:server');
+var http = require('http');
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+var io = require('socket.io')(server);
+
+var player = [];
+
+io.on("connection", function (socket) {
+  // for (i in socket.adapter.rooms) {
+  //   console.log("room---", socket.adapter.rooms[i].length);
+  // }
+  socket.on("find-opponent", function (data) {
+    if (player.length <= 0) {
+      player.push({
+        name: data,
+        id: socket.id,
+      })
+      return;
+    }
+    else {
+      socket.emit("get-your-opponent", { ...player[0], firstTurn: false });
+      io.to(player[0].id).emit("get-your-opponent", {
+        name: data,
+        id: socket.id,
+        firstTurn: true,
+      })
+      player.shift();
+      return;
+    }
+  })
+
+  socket.on("send-check", data => {
+    console.log(data);
+    io.to(data.opponentId).emit("get-your-opponent-check", data.position)
+  })
+
+  socket.on("send-message", data => {
+    console.log(data);
+    io.to(data.opponentId).emit("get-opponent-message", data.message);
+  })
+
+  socket.on("send-abandon", data => {
+    io.to(data).emit("opponent-abandon")
+  })
+
+  socket.on("request-match-draw", data => {
+    io.to(data).emit("get-request-match-draw")
+  })
+
+  socket.on("request-match-draw", data => {
+    io.to(data).emit("get-request-match-draw")
+  })
+
+  socket.on("accept-match-draw", data => {
+    io.to(data).emit("get-accept-match-draw")
+  })
+
+  socket.on("request-return", data => {
+    io.to(data).emit("get-request-return")
+  })
+
+  socket.on("accept-return", data => {
+    io.to(data).emit("get-accept-return")
+  })
+
+  // socket.on("deny-match-draw", data => {
+  //   io.to(data).emit("get-deny-match-draw")
+  // })
+
+
+
+  socket.on("disconnect", function () {
+    console.log("disconnect!!!!");
+
+  })
+})
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}
