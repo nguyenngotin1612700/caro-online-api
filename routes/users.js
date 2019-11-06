@@ -16,19 +16,39 @@ router.get('/me', passport.authenticate('jwt', { session: false }), function (re
 });
 
 router.post('/changePassword', passport.authenticate('jwt', { session: false }), function (req, res, next) {
-  console.log(req.body);
-  console.log('---xxx---xxx', req.user.email);
   const user = userModel.findOne({ email: req.user.email })
     .then(currentUser => {
-      currentUser.password = req.body.password;
+      if (currentUser.password !== req.body.currentPassword) {
+        console.log('yyyyyyy');
+        res.status(400).json({ message: "change password failed, current password incorrect!!!" });
+        return;
+      }
+      if (req.body.newPassword !== req.body.confirmPassword) {
+        res.status(400).json({ message: "change password failed, confirm password do not match with new password!!!" })
+        return;
+      }
+      currentUser.password = req.body.newPassword;
       currentUser.save();
+      return res.send(req.user);
     });
-  res.send(req.user);
 });
 
 router.post('/changeProfile', passport.authenticate('jwt', { session: false }), function (req, res, next) {
-  console.log(req.body);
-  res.send(req.user);
+  const user = userModel.findOne({ email: req.user.email })
+    .then(currentUser => {
+      if (req.body.name) {
+        currentUser.name = req.body.name
+      }
+      if (req.body.phone) {
+        currentUser.phone = req.body.phone
+      }
+      if (req.body.gender) {
+        currentUser.gender = req.body.gender
+      }
+      currentUser.save();
+      const token = jwt.sign({ email: currentUser.email, name: currentUser.name, _id: currentUser._id }, 'your_jwt_secret');
+      return res.send({ email: currentUser.email, name: currentUser.name, phone: currentUser.phone, gender: currentUser.gender, token });
+    });
 });
 
 /* POST login. */
